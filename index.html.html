@@ -1,0 +1,602 @@
+<title>Contagiri Acustico</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,500;0,600;0,700;1,700;1,800&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Cruscotto da scooter anni '70-'80: carrozzeria verniciata come sfondo, targhette avorio con cornici cromate,
+   quadrante avorio a lancetta, contachilometri a rulli, indicatore marce come la manopola del cambio */
+:root{
+  --paint:#8fbccb; --paint-hi:#b8d8e2; --paint-lo:#5f93a5;
+  --ivory:#f4eedc; --ivory-2:#e8dfc6; --ink:#17150f; --ink-2:#5b5546;
+  --red:#c4161c; --needle:#e0401a; --ok:#2f8f4e; --warn:#c98a08;
+  --chrome-1:#fbfbfa; --chrome-2:#a9adb1; --chrome-3:#6d7277;
+  --f-disp:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:light;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{height:100%}
+body{
+  color:var(--ink);font-family:var(--f-body);font-size:15px;
+  background:var(--paint);
+  background-image:radial-gradient(120% 70% at 20% 0%,var(--paint-hi) 0%,transparent 55%),
+                   radial-gradient(120% 80% at 90% 110%,var(--paint-lo) 0%,transparent 60%);
+  background-attachment:fixed;
+  -webkit-tap-highlight-color:transparent;overflow:hidden}
+/* due pagine affiancate: si scorre col dito o si cambia dalla barra in basso */
+.pager{height:100%;display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scrollbar-width:none;overscroll-behavior-x:contain}
+.pager::-webkit-scrollbar{display:none}
+.pane{flex:0 0 100%;width:100%;height:100%;overflow-y:auto;overflow-x:hidden;scroll-snap-align:start;scroll-snap-stop:always;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));-webkit-overflow-scrolling:touch}
+.app{max-width:500px;margin:0 auto;min-height:100%;display:flex;flex-direction:column;gap:12px;padding-block:12px 18px}
+
+/* cornice cromata + targhetta avorio */
+.plate{background:var(--ivory);border-radius:10px;position:relative;min-width:0;
+  box-shadow:0 0 0 2px var(--chrome-2),0 0 0 4px var(--chrome-1),0 0 0 5px var(--chrome-3),0 6px 14px -6px rgba(0,0,0,.45),inset 0 2px 6px rgba(0,0,0,.08)}
+.lab{font-family:var(--f-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2)}
+
+header.plate{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 12px;margin-top:4px}
+.brand{font-family:var(--f-disp);font-style:italic;font-weight:800;font-size:22px;letter-spacing:.02em;line-height:1}
+.brand span{font-weight:700;color:var(--red)}
+.badge{font-family:var(--f-mono);font-size:10.5px;letter-spacing:.12em;padding:4px 8px;border-radius:3px;background:var(--ink);color:var(--ivory);white-space:nowrap;display:flex;align-items:center;gap:6px}
+.badge i{width:7px;height:7px;border-radius:50%;background:#555;display:inline-block}
+.badge.on i{background:#4fd16f;box-shadow:0 0 6px #4fd16f}
+.badge.test i{background:#ffb02e;box-shadow:0 0 6px #ffb02e}
+
+.gauge-wrap{display:grid;place-items:center;padding-top:4px}
+#gauge{width:min(100%,46vh,440px);aspect-ratio:1;max-width:100%;display:block;filter:drop-shadow(0 8px 12px rgba(0,0,0,.35))}
+
+/* manopola del cambio: 1 · N · 2 · 3 · 4 */
+.shift{padding:10px 12px;display:flex;flex-direction:column;gap:6px}
+.shift-row{display:flex;align-items:center;gap:12px}
+.gear-big{font-family:var(--f-disp);font-weight:700;font-size:58px;line-height:.85;width:1.1em;text-align:center;font-variant-numeric:tabular-nums;color:var(--ink)}
+.gear-big.clutch{color:var(--warn)}
+.grip{flex:1;display:flex;justify-content:space-between;align-items:center;gap:4px;min-width:0;
+  background:repeating-linear-gradient(90deg,var(--ink) 0 3px,#2a271f 3px 6px);border-radius:20px;padding:6px 10px}
+.grip b{font-family:var(--f-disp);font-weight:700;font-size:20px;color:#8c8572;width:30px;height:30px;display:grid;place-items:center;border-radius:50%;transition:background .15s,color .15s}
+.grip b.n{font-size:16px}
+.grip b.act{background:var(--ivory);color:var(--ink)}
+.grip b.act.n{background:#4fd16f;color:var(--ink)}
+
+.row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.cell{padding:10px 12px;display:flex;flex-direction:column;gap:6px}
+.speed{font-family:var(--f-disp);font-weight:700;font-size:48px;line-height:.85;font-variant-numeric:tabular-nums}
+.speed small{font-size:15px;font-weight:600;color:var(--ink-2);margin-left:4px}
+/* contachilometri a rulli */
+.drum{display:inline-flex;gap:2px;font-family:var(--f-disp);font-weight:600;font-size:22px;line-height:1}
+.drum span{background:linear-gradient(#000,#2b2b2b 45%,#111 55%,#000);color:#f2f2f2;width:17px;height:28px;display:grid;place-items:center;border-radius:2px}
+.drum span.dec{background:linear-gradient(#f4f1e6,#fff 45%,#e6e1d3 55%,#d8d2c2);color:var(--red)}
+.drum span.dot{background:none;color:var(--ink);width:6px}
+.max{font-family:var(--f-disp);font-weight:700;font-size:26px;line-height:1;font-variant-numeric:tabular-nums}
+
+.diag{padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.status{display:flex;gap:10px;align-items:center;font-family:var(--f-mono);font-size:11px;color:var(--ink-2)}
+.src{min-width:62px;color:var(--ink);font-weight:500}
+.confbar{flex:1;height:7px;background:var(--ivory-2);border-radius:4px;overflow:hidden;box-shadow:inset 0 1px 2px rgba(0,0,0,.2)}
+.confbar i{display:block;height:100%;width:0;background:var(--ok);transition:width .15s linear}
+#spec{width:100%;height:56px;display:block;background:var(--ink);border-radius:4px}
+.msg{font-size:13.5px;line-height:1.45;color:var(--ink);margin:0}
+.msg.warn{color:#8a2a08}
+
+.app{padding-bottom:calc(104px + env(safe-area-inset-bottom,0px))}
+/* barra fissa in basso: sempre a portata di pollice */
+.dock{position:fixed;left:0;right:0;bottom:0;z-index:30;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-bottom:calc(10px + env(safe-area-inset-bottom,0px));padding-top:10px;
+  background:linear-gradient(#2a2822,#151410);box-shadow:0 -1px 0 #9a9ea2,0 -2px 0 #f2f2f2,0 -8px 18px rgba(0,0,0,.3)}
+.dock-in{max-width:500px;margin:0 auto;display:grid;grid-template-columns:1fr 1.25fr 1fr;gap:12px;align-items:center}
+.dock .tab{background:none;box-shadow:none;color:#bdb6a2;font:600 12px/1 var(--f-mono);letter-spacing:.12em;text-transform:uppercase;
+  padding:10px 4px;display:flex;flex-direction:column;align-items:center;gap:6px}
+.dock .tab svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:1.8}
+.dock .tab[aria-current=true]{color:var(--ivory)}
+.dock .tab[aria-current=true]::after{content:"";width:18px;height:3px;border-radius:2px;background:var(--needle)}
+.dock .key{padding:16px 10px}
+.sheet-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.sheet-head span{font-size:12.5px;color:var(--ink-2)}
+button{padding:8px 12px;font-size:13.5px}
+button{font:600 15px/1 var(--f-body);color:var(--ink);background:var(--ivory);border:0;border-radius:8px;padding:14px 14px;cursor:pointer;
+  box-shadow:0 0 0 2px var(--chrome-2),0 0 0 3px var(--chrome-3),0 4px 8px -4px rgba(0,0,0,.4)}
+button:active{transform:translateY(1px)}
+button.key{background:var(--red);color:#fff;font-family:var(--f-disp);font-style:italic;font-weight:800;font-size:22px;letter-spacing:.06em;text-transform:uppercase}
+button.key.on{background:var(--ink)}
+button.on{background:var(--ink);color:var(--ivory)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--needle);outline-offset:3px}
+
+.sheet{padding:14px;display:flex;flex-direction:column;gap:14px}
+.sheet h2{margin:0;font-family:var(--f-disp);font-style:italic;font-weight:800;font-size:24px}
+.sheet h3{margin:4px 0 0;font-family:var(--f-mono);font-weight:500;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--red);border-top:1px solid var(--ivory-2);padding-top:12px}
+.field{display:grid;grid-template-columns:1fr auto;gap:6px 12px;align-items:center}
+.field label{font-size:14.5px}
+.field .hint{grid-column:1/-1;font-size:12.5px;color:var(--ink-2);line-height:1.4}
+.field output{font-family:var(--f-mono);font-size:12px;color:var(--red);min-width:56px;text-align:right}
+input[type=range]{grid-column:1/-1;width:100%;accent-color:var(--red)}
+select,input[type=number]{background:#fff;color:var(--ink);border:1px solid var(--chrome-2);border-radius:5px;padding:8px;font:500 14px var(--f-body);max-width:150px}
+.swatches{display:flex;flex-wrap:wrap;gap:10px}
+.swatches button{width:40px;height:40px;padding:0;border-radius:50%;box-shadow:0 0 0 2px var(--chrome-2),0 0 0 3px var(--chrome-3)}
+.swatches button[aria-pressed=true]{box-shadow:0 0 0 3px var(--ink),0 0 0 5px var(--ivory)}
+table{width:100%;border-collapse:collapse;font-family:var(--f-mono);font-size:12.5px;font-variant-numeric:tabular-nums}
+td,th{padding:6px 4px;border-bottom:1px solid var(--ivory-2);text-align:left}
+th{color:var(--ink-2);font-weight:500;font-size:10px;letter-spacing:.1em;text-transform:uppercase}
+.btnrow{display:flex;flex-wrap:wrap;gap:12px}
+.btnrow button{padding:10px 12px;font-size:13.5px}
+@media (prefers-reduced-motion:reduce){.confbar i,.grip b{transition:none}}
+</style>
+
+<main class="pager" id="pager">
+<div class="pane" id="p0"><div class="app">
+  <header class="plate">
+    <div class="brand">Contagiri <span>acustico</span></div>
+    <span class="badge" id="mode"><i></i><span id="modeT">SPENTO</span></span>
+  </header>
+
+  <div class="gauge-wrap"><canvas id="gauge" aria-label="Contagiri"></canvas></div>
+
+  <div class="plate shift">
+    <span class="lab">Marcia</span>
+    <div class="shift-row">
+      <span class="gear-big" id="gear">–</span>
+      <div class="grip" id="grip" aria-hidden="true"></div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="plate cell"><span class="lab">Velocità</span><span class="speed" id="speed">0<small>km/h</small></span></div>
+    <div class="plate cell"><span class="lab">Giri max</span><span class="max" id="max">0</span></div>
+    <div class="plate cell"><span class="lab">Parziale km</span><span class="drum" id="trip"></span></div>
+    <div class="plate cell"><span class="lab">Totale km</span><span class="drum" id="odo"></span></div>
+  </div>
+
+  <div class="plate diag">
+    <div class="status"><span class="src" id="src">—</span><span>segnale</span><div class="confbar"><i id="conf"></i></div></div>
+    <canvas id="spec" aria-label="Spettro audio filtrato"></canvas>
+    <p class="msg" id="msg">Tocca Avvia e consenti microfono e posizione. Telefono sul manubrio, il più vicino possibile al motore.</p>
+  </div>
+
+</div></div>
+<div class="pane" id="p1"><div class="app">
+  <section class="plate sheet" id="settings">
+    <div class="sheet-head"><h2>Menu</h2><span>Scorri a destra per tornare allo strumento</span></div>
+    <h3>Colore carrozzeria</h3>
+    <div class="swatches" id="swatches"></div>
+
+    <h3>Motore</h3>
+    <div class="field"><label for="stroke">Ciclo</label>
+      <select id="stroke"><option value="2">2 tempi</option><option value="4">4 tempi</option></select></div>
+    <div class="field"><label for="cyl">Cilindri</label><input id="cyl" type="number" min="1" max="8" step="1"></div>
+    <div class="field"><label for="ngears">Marce</label><input id="ngears" type="number" min="3" max="6" step="1"></div>
+    <div class="field"><label for="red">Zona rossa</label><output id="redO"></output>
+      <input id="red" type="range" min="4000" max="12000" step="250"></div>
+    <div class="field"><label for="rmax">Fondo scala</label><output id="rmaxO"></output>
+      <input id="rmax" type="range" min="6000" max="14000" step="1000"></div>
+
+    <h3>Filtro vento</h3>
+    <div class="field"><label for="wind">Anti-vento</label><output id="windO"></output>
+      <input id="wind" type="range" min="0" max="1" step="0.05">
+      <span class="hint">Più alto: ignora le basse frequenze dove soffia il vento e si fida delle armoniche alte del motore.</span></div>
+    <div class="field"><label for="hp">Passa-alto</label><output id="hpO"></output>
+      <input id="hp" type="range" min="10" max="120" step="5"></div>
+    <div class="field"><label for="lag">Ritardo GPS</label><output id="lagO"></output>
+      <input id="lag" type="range" min="0" max="2" step="0.1">
+      <span class="hint">Compensa il ritardo del GPS quando confronta giri e velocità.</span></div>
+
+    <h3>Rapporti appresi</h3>
+    <div style="overflow-x:auto"><table><thead><tr><th>Marcia</th><th>Giri per km/h</th><th>Campioni</th><th>Stato</th></tr></thead><tbody id="ratios"></tbody></table></div>
+    <div class="field"><span class="hint">Si imparano guidando: a frizione chiusa giri e velocità hanno un rapporto fisso per ogni marcia.</span></div>
+
+    <h3>Modalità prova</h3>
+    <div class="field"><span class="hint">Motore 2 tempi e vento sintetici, per verificare il filtro senza uscire. Non tocca i chilometri reali.</span></div>
+    <div class="field"><label for="simwind">Vento simulato</label><output id="simwindO"></output>
+      <input id="simwind" type="range" min="0" max="1.5" step="0.05"></div>
+
+    <div class="btnrow">
+      <button id="simBtn">Avvia prova</button>
+      <button id="listen">Ascolta prova</button>
+      <button id="resetTrip">Azzera parziale</button>
+      <button id="resetGears">Riapprendi marce</button>
+    </div>
+  </section>
+
+</div></div>
+</main>
+<nav class="dock" aria-label="Comandi">
+  <div class="dock-in">
+    <button class="tab" id="homeBtn" aria-current="true">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 16a8 8 0 1 1 16 0"/><path d="M12 16l4-5"/><circle cx="12" cy="16" r="1.4"/></svg>Strumento</button>
+    <button class="key" id="start">Avvia</button>
+    <button class="tab" id="setBtn" aria-expanded="false" aria-current="false">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/><circle cx="9" cy="7" r="2" fill="currentColor"/><circle cx="15" cy="12" r="2" fill="currentColor"/><circle cx="8" cy="17" r="2" fill="currentColor"/></svg>Menu</button>
+  </div>
+</nav>
+
+<script>
+(()=>{
+const $=id=>document.getElementById(id);
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+
+/* ---------- colori carrozzeria ---------- */
+const PAINTS=[
+  {n:'Celeste',c:'#8fbccb'},{n:'Verde acqua',c:'#93c2a6'},{n:'Rosso',c:'#a8232a'},
+  {n:'Blu notte',c:'#253a5c'},{n:'Giallo',c:'#e2b33b'},{n:'Bianco',c:'#e4e0d3'},{n:'Nero',c:'#232323'}];
+function shade(hex,amt){const n=parseInt(hex.slice(1),16);let r=n>>16,g=n>>8&255,b=n&255;
+  const f=v=>clamp(Math.round(amt>0?v+(255-v)*amt:v*(1+amt)),0,255);return `rgb(${f(r)},${f(g)},${f(b)})`}
+
+/* ---------- impostazioni persistenti ---------- */
+const DEF={stroke:2,cyl:1,ngears:4,red:7000,rmax:9000,wind:0.5,hp:30,lag:0.8,simwind:0.7,odo:0,trip:0,gears:[],paint:'#8fbccb'};
+let S={...DEF};
+try{Object.assign(S,JSON.parse(localStorage.getItem('contagiri')||'{}'))}catch(e){}
+let saveT=0;
+function save(){clearTimeout(saveT);saveT=setTimeout(()=>{try{localStorage.setItem('contagiri',JSON.stringify(S))}catch(e){}},400)}
+const firingsPerRev=()=>S.cyl*(S.stroke==2?1:0.5);
+const RPM_MIN=1000;
+
+function applyPaint(){
+  const r=document.documentElement.style;r.setProperty('--paint',S.paint);
+  r.setProperty('--paint-hi',shade(S.paint,0.35));r.setProperty('--paint-lo',shade(S.paint,-0.3));
+  document.querySelectorAll('#swatches button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.c===S.paint)));
+}
+PAINTS.forEach(p=>{const b=document.createElement('button');b.style.background=p.c;b.dataset.c=p.c;b.title=p.n;b.setAttribute('aria-label',p.n);
+  b.onclick=()=>{S.paint=p.c;applyPaint();save()};$('swatches').appendChild(b)});
+applyPaint();
+
+/* ---------- stato ---------- */
+let ac=null,hp=null,analyser=null,spec=null,W=null,scores=null;
+let micStream=null,geoId=null,live=false,sim=false,listening=false;
+let rpm=0,rawConf=0,src='—',maxRpm=0,displayRpm=0;
+let speed=0,speedT=0,prevSpeed=0,accel=0,lastFix=null;
+let gear=null,clutch=false,predF=null,lastRes=null;
+const hist=[],recent=[];
+
+/* ---------- audio ---------- */
+function ensureAC(){
+  if(ac) return ac;
+  ac=new (window.AudioContext||window.webkitAudioContext)();
+  hp=ac.createBiquadFilter();hp.type='highpass';hp.frequency.value=S.hp;hp.Q.value=0.7;
+  analyser=ac.createAnalyser();analyser.fftSize=16384;analyser.smoothingTimeConstant=0;
+  const mute=ac.createGain();mute.gain.value=0;
+  hp.connect(analyser);analyser.connect(mute);mute.connect(ac.destination);
+  spec=new Float32Array(analyser.frequencyBinCount);W=new Float32Array(analyser.frequencyBinCount);
+  return ac;
+}
+
+function analyze(){
+  if(!ac||ac.state!=='running'||(!live&&!sim)) return null;
+  analyser.getFloatFrequencyData(spec);
+  const binHz=ac.sampleRate/analyser.fftSize, fpr=firingsPerRev();
+  const fmin=RPM_MIN/60*fpr, fmax=S.rmax/60*fpr, K=8;
+  const topBin=Math.min(spec.length-2,Math.ceil(Math.min(fmax*K+60,ac.sampleRate*0.45)/binHz));
+  const half=Math.max(3,Math.round(25/binHz)), hpBin=Math.floor(S.hp/binHz);
+  // sbiancamento: sottrae il fondo locale (vento, rumore a banda larga) e lascia solo i picchi armonici
+  const pre=new Float64Array(topBin+2);
+  for(let i=0;i<=topBin;i++){pre[i+1]=pre[i]+Math.max(spec[i],-140)}
+  const gate=3+S.wind*4;
+  for(let i=0;i<=topBin;i++){
+    if(i<hpBin){W[i]=0;continue}
+    const a=Math.max(0,i-half),b=Math.min(topBin,i+half);
+    W[i]=Math.max(0,Math.max(spec[i],-140)-(pre[b+1]-pre[a])/(b-a+1)-gate);
+  }
+  const at=f=>{const x=f/binHz,i=x|0;if(i<0||i>=topBin)return 0;const r=x-i;return W[i]*(1-r)+W[i+1]*r};
+  const w=[];for(let k=1;k<=K;k++) w.push((k===1?1-0.75*S.wind:1)*(1+S.wind*0.12*(k-1)));
+  const step=0.2,n=Math.floor((fmax-fmin)/step)+1;
+  if(!scores||scores.length!==n) scores=new Float32Array(n);
+  let best=0,bi=0;
+  for(let j=0;j<n;j++){
+    const f=fmin+j*step;let s=0,p=0;
+    for(let k=1;k<=K;k++){s+=w[k-1]*at(k*f);p+=at((k-0.5)*f)}
+    s-=0.5*p;scores[j]=s;if(s>best){best=s;bi=j}
+  }
+  // finestra guidata dal GPS quando la marcia è nota e si viaggia regolari
+  let pick=bi,used=false;
+  if(predF){
+    const lo=Math.max(0,Math.floor((predF*0.85-fmin)/step)),hi=Math.min(n-1,Math.ceil((predF*1.15-fmin)/step));
+    let wb=-1e9,wi=-1;for(let j=lo;j<=hi;j++) if(scores[j]>wb){wb=scores[j];wi=j}
+    if(wi>=0&&wb>=0.6*best){pick=wi;used=true}
+  }
+  const sorted=Array.from(scores).sort((a,b)=>a-b),med=sorted[n>>1];
+  const pv=scores[pick];
+  let off=0;if(pick>0&&pick<n-1){const a=scores[pick-1],c=scores[pick+1],d=a-2*pv+c;if(d<0)off=clamp(0.5*(a-c)/d,-0.5,0.5)}
+  const f0=fmin+(pick+off)*step;
+  const rel=clamp((pv-med)/(pv+1e-6),0,1), sal=clamp(pv/(K*5),0,1);
+  return {rpm:f0*60/fpr,conf:rel*sal,used,f0,binHz,topBin};
+}
+
+/* ---------- modalità prova: motore 2T + vento + GPS ritardato ---------- */
+const SIM_R=[190,125,90,70]; // giri per km/h per marcia: valori d'esempio per la prova
+let simNodes=null,simT=0,simState=null,simGpsT=0;
+function startSimAudio(){
+  ensureAC();
+  const osc=ac.createOscillator();
+  const N=24,re=new Float32Array(N+1),im=new Float32Array(N+1);
+  for(let k=1;k<=N;k++){const a=1/Math.pow(k,0.7),ph=k*2.1;re[k]=a*Math.cos(ph);im[k]=a*Math.sin(ph)}
+  osc.setPeriodicWave(ac.createPeriodicWave(re,im));
+  const eg=ac.createGain();eg.gain.value=0.22;
+  const len=ac.sampleRate*2,buf=ac.createBuffer(1,len,ac.sampleRate),d=buf.getChannelData(0);
+  for(let i=0;i<len;i++)d[i]=Math.random()*2-1;
+  const noise=ac.createBufferSource();noise.buffer=buf;noise.loop=true;
+  const lp=ac.createBiquadFilter();lp.type='lowpass';lp.frequency.value=260;lp.Q.value=0.4;
+  const wg=ac.createGain();wg.gain.value=0;
+  const out=ac.createGain();
+  const spk=ac.createGain();spk.gain.value=listening?0.5:0;
+  osc.connect(eg);eg.connect(out);noise.connect(lp);lp.connect(wg);wg.connect(out);
+  out.connect(hp);out.connect(spk);spk.connect(ac.destination);
+  osc.start();noise.start();
+  simNodes={osc,wg,spk,out,noise};
+}
+function stopSimAudio(){if(!simNodes)return;try{simNodes.osc.stop();simNodes.noise.stop();simNodes.out.disconnect();simNodes.spk.disconnect()}catch(e){}simNodes=null}
+function simReset(){simState={ph:'idle',t:0,g:0,rpm:1500,v:0,vh:[]};simT=0;simGpsT=0}
+function simStep(dt){
+  const s=simState;s.t+=dt;simT+=dt;
+  const rate=[1600,950,620,380];
+  if(s.ph==='idle'){s.rpm=1500+60*Math.sin(simT*7);s.v=0;if(s.t>3){s.ph='launch';s.t=0;s.g=0}}
+  else if(s.ph==='launch'){s.rpm=Math.min(3000,s.rpm+3000*dt);s.v=Math.min(s.v+11*dt,3000/SIM_R[0]);if(s.v>=3000/SIM_R[0]-0.05){s.ph='pull';s.t=0}}
+  else if(s.ph==='pull'){s.rpm+=rate[s.g]*dt;s.v=s.rpm/SIM_R[s.g];
+    if(s.rpm>=(s.g===3?5200:5800)){s.ph=s.g<3?'shift':'cruise';s.t=0}}
+  else if(s.ph==='shift'){s.v-=1.5*dt;s.rpm=Math.max(1800,s.rpm-9000*dt);if(s.t>0.35){s.g++;s.rpm=s.v*SIM_R[s.g];s.ph='pull';s.t=0}}
+  else if(s.ph==='cruise'){s.rpm=5200+140*Math.sin(s.t*0.9);s.v=s.rpm/SIM_R[3];if(s.t>9){s.ph='decel';s.t=0}}
+  else if(s.ph==='decel'){s.rpm-=700*dt;s.v=s.rpm/SIM_R[s.g];
+    if(s.rpm<2500){if(s.g>0){s.g--;s.rpm=s.v*SIM_R[s.g]}else{s.ph='stop';s.t=0}}}
+  else if(s.ph==='stop'){s.v=Math.max(0,s.v-9*dt);s.rpm=Math.max(1500,s.rpm-2500*dt);if(s.v===0&&s.t>1.5){s.ph='idle';s.t=0}}
+  s.rpm*=1+(Math.random()-0.5)*0.004;
+  if(simNodes){
+    simNodes.osc.frequency.setTargetAtTime(s.rpm/60*firingsPerRev(),ac.currentTime,0.02);
+    const gust=0.75+0.35*Math.sin(simT*1.3)+0.2*Math.sin(simT*3.7);
+    simNodes.wg.gain.setTargetAtTime(S.simwind*Math.pow(s.v/45,2)*gust*1.6+0.01,ac.currentTime,0.05);
+  }
+  s.vh.push({t:simT,v:s.v});while(s.vh.length&&s.vh[0].t<simT-3)s.vh.shift();
+  simGpsT+=dt;
+  if(simGpsT>=1){simGpsT=0;const target=simT-0.8;let v=s.v;for(const e of s.vh){if(e.t<=target)v=e.v}
+    onSpeed(Math.max(0,v+(Math.random()-0.5)*1.2),0)}
+}
+
+/* ---------- GPS ---------- */
+function hav(a,b){const R=6371000,r=Math.PI/180,dl=(b.lat-a.lat)*r,dn=(b.lon-a.lon)*r;
+  const x=Math.sin(dl/2)**2+Math.cos(a.lat*r)*Math.cos(b.lat*r)*Math.sin(dn/2)**2;return 2*R*Math.asin(Math.sqrt(x))}
+function onPos(p){
+  const c=p.coords,fix={lat:c.latitude,lon:c.longitude,t:p.timestamp,acc:c.accuracy};
+  let v=c.speed!=null&&c.speed>=0?c.speed*3.6:null,dist=0;
+  if(lastFix){dist=hav(lastFix,fix);const dt=(fix.t-lastFix.t)/1000;if(v==null&&dt>0)v=dist/dt*3.6}
+  if(v==null)v=0;
+  const okDist=lastFix&&fix.acc<30&&v>1.5;
+  lastFix=fix;
+  onSpeed(v,okDist?dist:0);
+}
+function onSpeed(v,meters){
+  const now=performance.now()/1000;
+  accel=speedT?(v-prevSpeed)/Math.max(0.2,now-speedT):0;
+  prevSpeed=v;speed=v;speedT=now;
+  if(meters>0&&!sim){S.trip+=meters/1000;S.odo+=meters/1000;save()}
+  learn();
+}
+
+/* ---------- apprendimento marce ---------- */
+function rpmAt(tAgo){const t=performance.now()/1000-tAgo;let best=null;for(const h of hist){if(h.t<=t)best=h;else break}return best}
+function confirmed(){return S.gears.filter(g=>g.n>=15).sort((a,b)=>b.r-a.r)}
+function learn(){
+  if(sim)return; // la prova non sporca i rapporti reali
+  const h=rpmAt(S.lag);
+  if(!h||h.conf<0.35||speed<8||Math.abs(accel)>10)return;
+  const r=h.rpm/speed;
+  let near=null,dmin=1;
+  for(const g of S.gears){const d=Math.abs(Math.log(r/g.r));if(d<dmin){dmin=d;near=g}}
+  if(near&&dmin<0.09){near.n++;near.r+=(r-near.r)/Math.min(near.n,60)}
+  else if(S.gears.length<S.ngears+2){S.gears.push({r,n:1})}
+  else{const weak=S.gears.reduce((a,b)=>a.n<b.n?a:b);if(weak.n<6){weak.r=r;weak.n=1}}
+  S.gears.sort((a,b)=>b.r-a.r);
+  for(let i=0;i<S.gears.length-1;i++){const a=S.gears[i],b=S.gears[i+1];
+    if(Math.abs(Math.log(a.r/b.r))<0.07){a.r=(a.r*a.n+b.r*b.n)/(a.n+b.n);a.n+=b.n;S.gears.splice(i+1,1);i--}}
+  save();renderRatios();
+}
+function gearSet(){
+  if(sim) return SIM_R.map(r=>({r,n:99}));
+  return confirmed().slice(0,S.ngears).sort((a,b)=>b.r-a.r);
+}
+function identifyGear(){
+  const G=gearSet();predF=null;
+  if(speed<3){gear=rpm>0?'N':null;clutch=false;return}
+  const h=rpmAt(S.lag);
+  if(!G.length||!h||h.conf<0.25){gear=null;return}
+  const r=h.rpm/speed;let bi=-1,dmin=1;
+  G.forEach((g,i)=>{const d=Math.abs(Math.log(r/g.r));if(d<dmin){dmin=d;bi=i}});
+  if(dmin<0.12){gear=bi+1;clutch=false;
+    if(speed>25&&Math.abs(accel)<3) predF=G[bi].r*speed/60*firingsPerRev();
+  }else clutch=true;
+}
+function gpsPredRpm(){if(typeof gear!=='number')return null;const G=gearSet();return G[gear-1]?G[gear-1].r*speed:null}
+
+/* ---------- ciclo di misura ---------- */
+let lastT=performance.now();
+function tick(){
+  const now=performance.now(),dt=Math.min(0.1,(now-lastT)/1000);lastT=now;
+  if(sim&&simState) simStep(dt);
+  let res=analyze();
+  if(!res&&sim&&simState) res={rpm:simState.rpm*(1+(Math.random()-.5)*0.01),conf:0.8,used:false};
+  if(!res){rawConf=0;return}
+  rawConf=res.conf;
+  if(res.conf>=0.25){
+    recent.push(res.rpm);if(recent.length>3)recent.shift();
+    const m=[...recent].sort((a,b)=>a-b)[recent.length>>1];
+    rpm=rpm?rpm+(m-rpm)*0.55:m;
+    src=res.used?'MIC+GPS':'MIC';
+    if(res.conf>=0.5)maxRpm=Math.max(maxRpm,rpm);
+  }else{
+    const p=gpsPredRpm();
+    if(p&&speed>15){rpm+=(p-rpm)*0.4;src='GPS'}else src='—';
+  }
+  hist.push({t:now/1000,rpm,conf:res.conf});while(hist.length&&hist[0].t<now/1000-4)hist.shift();
+  identifyGear();
+  lastRes=res;
+}
+setInterval(tick,60);
+
+/* ---------- quadrante ---------- */
+const gc=$('gauge'),sc=$('spec');
+function fit(c){const r=c.getBoundingClientRect(),d=devicePixelRatio||1;const w=Math.round(r.width*d),h=Math.round(r.height*d);if(c.width!==w||c.height!==h){c.width=w;c.height=h}return {w,h,d}}
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+function drawGauge(){
+  const {w,d}=fit(gc),g=gc.getContext('2d');g.clearRect(0,0,w,w);
+  const cx=w/2,cy=w/2,R=w*0.47,a0=Math.PI*0.75,sweep=Math.PI*1.5,max=S.rmax;
+  const ang=v=>a0+sweep*clamp(v/max,0,1);
+  const ink=css('--ink'),ink2=css('--ink-2'),red=css('--red'),needle=css('--needle'),ivory=css('--ivory'),ivory2=css('--ivory-2');
+  const fd=css('--f-disp'),fm=css('--f-mono');
+  // ghiera cromata
+  let gr=g.createLinearGradient(0,cy-R,0,cy+R);
+  gr.addColorStop(0,'#ffffff');gr.addColorStop(0.35,'#b7bbbf');gr.addColorStop(0.5,'#f2f2f2');gr.addColorStop(0.7,'#7c8186');gr.addColorStop(1,'#dcdfe2');
+  g.fillStyle=gr;g.beginPath();g.arc(cx,cy,R,0,Math.PI*2);g.fill();
+  g.fillStyle='#55595d';g.beginPath();g.arc(cx,cy,R*0.925,0,Math.PI*2);g.fill();
+  // quadrante avorio
+  gr=g.createRadialGradient(cx,cy-R*0.3,R*0.1,cx,cy,R*0.92);gr.addColorStop(0,ivory);gr.addColorStop(1,ivory2);
+  g.fillStyle=gr;g.beginPath();g.arc(cx,cy,R*0.91,0,Math.PI*2);g.fill();
+  // zona rossa
+  g.lineWidth=R*0.06;g.strokeStyle=red;g.lineCap='butt';g.beginPath();g.arc(cx,cy,R*0.82,ang(S.red),ang(max));g.stroke();
+  // tacche e numeri
+  for(let v=0;v<=max;v+=250){
+    const a=ang(v),major=v%1000===0,mid=v%500===0;
+    const r1=R*(major?0.7:mid?0.75:0.78),r2=R*0.86;
+    g.strokeStyle=v>=S.red&&!major?red:ink;g.lineWidth=(major?3.2:mid?2:1.1)*d;
+    g.beginPath();g.moveTo(cx+Math.cos(a)*r1,cy+Math.sin(a)*r1);g.lineTo(cx+Math.cos(a)*r2,cy+Math.sin(a)*r2);g.stroke();
+    if(major){g.fillStyle=v>=S.red?red:ink;g.font=`700 ${R*0.15}px ${fd}`;g.textAlign='center';g.textBaseline='middle';
+      g.fillText(v/1000,cx+Math.cos(a)*R*0.56,cy+Math.sin(a)*R*0.56)}
+  }
+  g.fillStyle=ink2;g.font=`italic 800 ${R*0.1}px ${fd}`;g.textAlign='center';g.textBaseline='alphabetic';
+  g.fillText('giri/min',cx,cy-R*0.28);
+  g.font=`500 ${R*0.055}px ${fm}`;g.fillText('× 1000',cx,cy-R*0.18);
+  // finestrella digitale
+  const bw=R*0.62,bh=R*0.2,bx=cx-bw/2,by=cy+R*0.36;
+  g.fillStyle='#16150f';roundRect(g,bx,by,bw,bh,R*0.03);g.fill();
+  g.strokeStyle='#9a9ea2';g.lineWidth=2*d;g.stroke();
+  displayRpm+=(rpm-displayRpm)*0.35;
+  const hot=displayRpm>=S.red;
+  g.fillStyle=hot?'#ff6b5e':'#f2ead2';g.font=`700 ${R*0.17}px ${fd}`;g.textBaseline='middle';
+  g.fillText(String(Math.round(displayRpm/10)*10).padStart(4,' '),cx,by+bh/2+R*0.005);
+  // lancetta
+  const a=ang(displayRpm);
+  g.save();g.shadowColor='rgba(0,0,0,.35)';g.shadowBlur=4*d;g.shadowOffsetY=2*d;
+  g.strokeStyle=needle;g.lineWidth=4.5*d;g.lineCap='round';
+  g.beginPath();g.moveTo(cx+Math.cos(a)*R*0.05,cy+Math.sin(a)*R*0.05);g.lineTo(cx+Math.cos(a)*R*0.84,cy+Math.sin(a)*R*0.84);g.stroke();
+  g.strokeStyle=ink;g.lineWidth=7*d;g.beginPath();g.moveTo(cx,cy);g.lineTo(cx-Math.cos(a)*R*0.16,cy-Math.sin(a)*R*0.16);g.stroke();
+  g.restore();
+  gr=g.createRadialGradient(cx-R*0.02,cy-R*0.02,1,cx,cy,R*0.08);gr.addColorStop(0,'#5a5a5a');gr.addColorStop(1,'#0e0e0e');
+  g.fillStyle=gr;g.beginPath();g.arc(cx,cy,R*0.075,0,Math.PI*2);g.fill();
+  // riflesso del vetro
+  gr=g.createLinearGradient(cx-R,cy-R,cx+R*0.2,cy+R*0.2);gr.addColorStop(0,'rgba(255,255,255,.28)');gr.addColorStop(0.45,'rgba(255,255,255,0)');
+  g.fillStyle=gr;g.beginPath();g.arc(cx,cy,R*0.91,0,Math.PI*2);g.fill();
+}
+function roundRect(g,x,y,w,h,r){g.beginPath();g.moveTo(x+r,y);g.arcTo(x+w,y,x+w,y+h,r);g.arcTo(x+w,y+h,x,y+h,r);g.arcTo(x,y+h,x,y,r);g.arcTo(x,y,x+w,y,r);g.closePath()}
+function drawSpec(){
+  const {w,h,d}=fit(sc),g=sc.getContext('2d');g.clearRect(0,0,w,h);
+  if(!lastRes||!lastRes.binHz||!W||(!live&&!sim))return;
+  const top=Math.min(1000,lastRes.topBin*lastRes.binHz),bins=Math.floor(top/lastRes.binHz);
+  g.strokeStyle='#9a9480';g.lineWidth=1*d;g.beginPath();
+  for(let i=0;i<bins;i++){const x=i/bins*w,y=h-clamp(W[i]/25,0,1)*(h-6*d)-2*d;i?g.lineTo(x,y):g.moveTo(x,y)}
+  g.stroke();
+  if(rawConf>=0.25){g.strokeStyle='#ff7a45';g.lineWidth=1.5*d;
+    for(let k=1;k<=8;k++){const x=lastRes.f0*k/top*w;if(x>w)break;g.globalAlpha=k===1?1:0.45;g.beginPath();g.moveTo(x,0);g.lineTo(x,h);g.stroke()}g.globalAlpha=1}
+}
+
+/* ---------- manopola marce e rulli ---------- */
+function buildGrip(){
+  const seq=['1','N'];for(let i=2;i<=S.ngears;i++)seq.push(String(i));
+  const el=$('grip');el.textContent='';
+  seq.forEach(t=>{const b=document.createElement('b');b.textContent=t;b.dataset.g=t;if(t==='N')b.className='n';el.appendChild(b)});
+}
+function drum(el,val,intDigits,dec){
+  const s=val.toFixed(dec?1:0).padStart(intDigits+(dec?2:0),'0').slice(-(intDigits+(dec?2:0)));
+  let h='';for(let i=0;i<s.length;i++){const c=s[i];h+=c==='.'?'<span class="dot">.</span>':`<span${dec&&i===s.length-1?' class="dec"':''}>${c}</span>`}
+  if(el._v!==h){el.innerHTML=h;el._v=h}
+}
+function render(){
+  drawGauge();drawSpec();
+  const ge=$('gear');
+  ge.textContent=clutch?'F':(gear==null?'–':gear);ge.classList.toggle('clutch',clutch);
+  ge.title=clutch?'Frizione tirata o slittamento':'';
+  document.querySelectorAll('#grip b').forEach(b=>b.classList.toggle('act',!clutch&&gear!=null&&b.dataset.g===String(gear)));
+  $('speed').innerHTML=`${Math.round(speed)}<small>km/h</small>`;
+  drum($('trip'),S.trip,3,true);drum($('odo'),S.odo,5,false);
+  $('max').textContent=Math.round(maxRpm/10)*10;
+  $('src').textContent=src;
+  const c=$('conf');c.style.width=Math.round(clamp(rawConf,0,1)*100)+'%';
+  c.style.background=rawConf>=0.5?css('--ok'):rawConf>=0.25?css('--warn'):css('--red');
+  requestAnimationFrame(render);
+}
+
+/* ---------- comandi ---------- */
+function msg(t,warn){const m=$('msg');m.textContent=t||'';m.hidden=!t;m.classList.toggle('warn',!!warn)}
+function setMode(){const b=$('mode');b.className='badge'+(sim?' test':live?' on':'');$('modeT').textContent=sim?'PROVA':live?'ACCESO':'SPENTO'}
+let wake=null;
+async function keepAwake(){try{wake=await navigator.wakeLock?.request('screen')}catch(e){}}
+function zero(){speed=0;rpm=0;gear=null;clutch=false;rawConf=0;src='—';lastRes=null;hist.length=0;recent.length=0}
+
+$('start').onclick=async()=>{
+  if(live){stopLive();return}
+  if(sim)await toggleSim(false);
+  ensureAC();try{await ac.resume()}catch(e){}
+  const errs=[];
+  try{
+    micStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
+    ac.createMediaStreamSource(micStream).connect(hp);
+  }catch(e){errs.push('microfono')}
+  if('geolocation' in navigator){
+    geoId=navigator.geolocation.watchPosition(onPos,()=>msg('Posizione non autorizzata: senza GPS niente velocità, marce e chilometri. Abilitala nelle impostazioni del browser.',true),{enableHighAccuracy:true,maximumAge:0,timeout:15000});
+  }else errs.push('GPS');
+  if(errs.length) msg(`Accesso negato a: ${errs.join(' e ')}. Dentro l’anteprima di Claude i sensori sono sempre bloccati: apri la pagina dal tuo indirizzo https.`,true);
+  else msg('Acceso. Al primo giro le marce si imparano da sole: servono qualche minuto di guida regolare in ogni marcia.');
+  live=!errs.includes('microfono');
+  if(live){$('start').textContent='Spegni';$('start').classList.add('on');keepAwake()}
+  else if(geoId!=null){navigator.geolocation.clearWatch(geoId);geoId=null}
+  setMode();
+};
+function stopLive(){
+  micStream?.getTracks().forEach(t=>t.stop());micStream=null;
+  if(geoId!=null)navigator.geolocation.clearWatch(geoId);geoId=null;lastFix=null;
+  live=false;$('start').textContent='Avvia';$('start').classList.remove('on');try{wake?.release()}catch(e){}
+  zero();msg('Spento.');setMode();
+}
+async function toggleSim(on){
+  sim=on;$('simBtn').classList.toggle('on',sim);$('simBtn').textContent=sim?'Ferma prova':'Avvia prova';
+  if(sim){
+    if(live)stopLive();
+    simReset();ensureAC();try{await ac.resume()}catch(e){}
+    startSimAudio();msg('Modalità prova: motore e vento sintetici. I chilometri e i rapporti reali non vengono toccati.');
+  }else{stopSimAudio();zero();msg('')}
+  setMode();
+}
+$('simBtn').onclick=()=>toggleSim(!sim);
+const pager=$('pager');let page=0;
+function setPage(i){page=i;$('homeBtn').setAttribute('aria-current',String(i===0));$('setBtn').setAttribute('aria-current',String(i===1));$('setBtn').setAttribute('aria-expanded',String(i===1))}
+function go(i){pager.scrollTo({left:i*pager.clientWidth,behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});setPage(i)}
+pager.addEventListener('scroll',()=>{const i=Math.round(pager.scrollLeft/Math.max(1,pager.clientWidth));if(i!==page)setPage(i)},{passive:true});
+addEventListener('resize',()=>{pager.scrollLeft=page*pager.clientWidth});
+$('homeBtn').onclick=()=>{if(page===0)$('p0').scrollTo({top:0,behavior:'smooth'});else go(0)};
+$('setBtn').onclick=()=>go(1);
+document.addEventListener('keydown',e=>{if(e.key==='Escape')go(0)});
+$('resetTrip').onclick=()=>{S.trip=0;maxRpm=0;save()};
+$('resetGears').onclick=()=>{S.gears=[];save();renderRatios()};
+$('listen').onclick=()=>{listening=!listening;$('listen').classList.toggle('on',listening);$('listen').textContent=listening?'Silenzia prova':'Ascolta prova';
+  if(simNodes)simNodes.spk.gain.setTargetAtTime(listening?0.5:0,ac.currentTime,0.05)};
+
+function bind(id,fmt){
+  const el=$(id),o=$(id+'O');el.value=S[id];if(o)o.textContent=fmt(S[id]);
+  el.addEventListener('input',()=>{S[id]=+el.value;if(o)o.textContent=fmt(S[id]);
+    if(id==='hp'&&hp)hp.frequency.value=S.hp;
+    if(id==='ngears')buildGrip();
+    if(id==='red'&&S.red>S.rmax){S.rmax=Math.ceil(S.red/1000)*1000;$('rmax').value=S.rmax;$('rmaxO').textContent=S.rmax+' giri'}
+    save();renderRatios()});
+}
+bind('stroke',v=>v);bind('cyl',v=>v);bind('ngears',v=>v);
+bind('red',v=>v+' giri');bind('rmax',v=>v+' giri');
+bind('wind',v=>Math.round(v*100)+'%');bind('hp',v=>v+' Hz');bind('lag',v=>v.toFixed(1)+' s');bind('simwind',v=>Math.round(v*100)+'%');
+
+function renderRatios(){
+  const all=[...S.gears].sort((a,b)=>b.r-a.r),conf=confirmed().slice(0,S.ngears);
+  const tb=$('ratios');tb.textContent='';
+  if(!all.length){const td=tb.insertRow().insertCell();td.colSpan=4;td.textContent='Nessun dato: si riempie al primo giro.';td.style.color=css('--ink-2');return}
+  let gi=0;
+  for(const g of all){
+    const ok=conf.includes(g),tr=tb.insertRow();
+    [ok?String(++gi):'?',g.r.toFixed(1),g.n,ok?'confermata':'in apprendimento'].forEach((t,i)=>{const td=tr.insertCell();td.textContent=t;if(i===3)td.style.color=ok?css('--ok'):css('--ink-2')});
+  }
+}
+buildGrip();renderRatios();setMode();
+requestAnimationFrame(render);
+})();
+</script>
